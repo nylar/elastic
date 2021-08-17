@@ -10,6 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // BulkIndexRequest is a request to add or replace a document to Elasticsearch.
@@ -27,6 +30,7 @@ type BulkIndexRequest struct {
 	version         *int64 // default is MATCH_ANY
 	versionType     string // default is "internal"
 	doc             interface{}
+	protoDoc        proto.Message
 	pipeline        string
 	retryOnConflict *int
 	ifSeqNo         *int64
@@ -34,7 +38,8 @@ type BulkIndexRequest struct {
 
 	source []string
 
-	useEasyJSON bool
+	useEasyJSON  bool
+	useProtoJSON bool
 }
 
 //easyjson:json
@@ -71,6 +76,11 @@ func NewBulkIndexRequest() *BulkIndexRequest {
 // for details. This setting is disabled by default.
 func (r *BulkIndexRequest) UseEasyJSON(enable bool) *BulkIndexRequest {
 	r.useEasyJSON = enable
+	return r
+}
+
+func (r *BulkIndexRequest) UseProtoJSON(enable bool) *BulkIndexRequest {
+	r.useProtoJSON = enable
 	return r
 }
 
@@ -144,6 +154,12 @@ func (r *BulkIndexRequest) VersionType(versionType string) *BulkIndexRequest {
 // Doc specifies the document to index.
 func (r *BulkIndexRequest) Doc(doc interface{}) *BulkIndexRequest {
 	r.doc = doc
+	r.source = nil
+	return r
+}
+
+func (r *BulkIndexRequest) ProtoDoc(protoDoc proto.Message) *BulkIndexRequest {
+	r.protoDoc = protoDoc
 	r.source = nil
 	return r
 }
@@ -237,7 +253,15 @@ func (r *BulkIndexRequest) Source() ([]string, error) {
 	if r.doc != nil {
 		switch t := r.doc.(type) {
 		default:
-			body, err := json.Marshal(r.doc)
+			var body []byte
+			var err error
+
+			if r.useProtoJSON {
+				body, err = protojson.Marshal(r.protoDoc)
+			} else {
+				body, err = json.Marshal(r.doc)
+			}
+
 			if err != nil {
 				return nil, err
 			}
