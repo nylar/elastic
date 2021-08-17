@@ -250,7 +250,7 @@ func (r *BulkIndexRequest) Source() ([]string, error) {
 	lines[0] = string(body)
 
 	// "field1" ...
-	if r.doc != nil {
+	if r.doc != nil || r.protoDoc != nil {
 		switch t := r.doc.(type) {
 		default:
 			var body []byte
